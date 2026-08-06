@@ -21,9 +21,9 @@ import torch
 import numpy as np
 import pandas as pd
 
-# Force UTF-8 output on Windows
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
+# Force UTF-8 output on Windows, but ensure line-buffering so live prints aren't delayed!
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace', line_buffering=True)
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace', line_buffering=True)
 
 # Add module directories to sys.path so their internal imports (like 'import config') work
 project_root = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..')
@@ -159,19 +159,77 @@ def main():
                 time.sleep(1)
         
         f = open(args.file, 'r', encoding='utf-8')
-        header = f.readline() # Skip header
+        header_line = f.readline().strip()
         stream = follow(f)
     
-    header_skipped = False
     flow_count = 0
     alert_counts = {"Rule Engine": 0, "Isolation Forest": 0, "GraphSAGE": 0}
+    
+    # Hardcoded mapping: CIC-IDS2017 feature name -> cicflowmeter CSV column index
+    # This was built by comparing the training dataset headers with cicflowmeter output headers
+    CICFLOWMETER_COL_MAP = {
+        'Destination Port': 3, 'Flow Duration': 6,
+        'Total Fwd Packets': 11, 'Total Backward Packets': 12,
+        'Total Length of Fwd Packets': 13, 'Total Length of Bwd Packets': 14,
+        'Fwd Packet Length Max': 15, 'Fwd Packet Length Min': 16,
+        'Fwd Packet Length Mean': 17, 'Fwd Packet Length Std': 18,
+        'Bwd Packet Length Max': 19, 'Bwd Packet Length Min': 20,
+        'Bwd Packet Length Mean': 21, 'Bwd Packet Length Std': 22,
+        'Flow Bytes/s': 7, 'Flow Packets/s': 8,
+        'Flow IAT Mean': 32, 'Flow IAT Std': 35,
+        'Flow IAT Max': 33, 'Flow IAT Min': 34,
+        'Fwd IAT Total': 36, 'Fwd IAT Mean': 39,
+        'Fwd IAT Std': 40, 'Fwd IAT Max': 37, 'Fwd IAT Min': 38,
+        'Bwd IAT Total': 41, 'Bwd IAT Mean': 44,
+        'Bwd IAT Std': 45, 'Bwd IAT Max': 42, 'Bwd IAT Min': 43,
+        'Fwd PSH Flags': 46, 'Bwd PSH Flags': 47,
+        'Fwd URG Flags': 48, 'Bwd URG Flags': 49,
+        'Fwd Header Length': 28, 'Bwd Header Length': 29,
+        'Fwd Packets/s': 9, 'Bwd Packets/s': 10,
+        'Min Packet Length': 24, 'Max Packet Length': 23,
+        'Packet Length Mean': 25, 'Packet Length Std': 26,
+        'Packet Length Variance': 27,
+        'FIN Flag Count': 50, 'SYN Flag Count': 51,
+        'RST Flag Count': 52, 'PSH Flag Count': 53,
+        'ACK Flag Count': 54, 'URG Flag Count': 55,
+        'CWE Flag Count': 77, 'ECE Flag Count': 56,
+        'Down/Up Ratio': 57, 'Average Packet Size': 58,
+        'Avg Fwd Segment Size': 75, 'Avg Bwd Segment Size': 76,
+        'Fwd Header Length.1': 28,
+        'Fwd Avg Bytes/Bulk': 69, 'Fwd Avg Packets/Bulk': 70,
+        'Fwd Avg Bulk Rate': 73, 'Bwd Avg Bytes/Bulk': 71,
+        'Bwd Avg Packets/Bulk': 72, 'Bwd Avg Bulk Rate': 74,
+        'Subflow Fwd Packets': 78, 'Subflow Fwd Bytes': 80,
+        'Subflow Bwd Packets': 79, 'Subflow Bwd Bytes': 81,
+        'Init_Win_bytes_forward': 59, 'Init_Win_bytes_backward': 60,
+        'act_data_pkt_fwd': 31, 'min_seg_size_forward': 30,
+        'Active Mean': 63, 'Active Std': 64,
+        'Active Max': 61, 'Active Min': 62,
+        'Idle Mean': 67, 'Idle Std': 68,
+        'Idle Max': 65, 'Idle Min': 66,
+    }
+    
+    # Build the ordered column index list matching our feature_cols order
+    col_mapping = []
+    if not args.simulate:
+        for fc in feature_cols:
+            fc_stripped = fc.strip()
+            if fc_stripped in CICFLOWMETER_COL_MAP:
+                col_mapping.append(CICFLOWMETER_COL_MAP[fc_stripped])
+            else:
+                col_mapping.append(-1)  # Will default to 0.0
+        mapped_count = sum(1 for c in col_mapping if c >= 0)
+        print(f"{Colors.GREEN}    - Column mapping: {mapped_count}/{len(feature_cols)} features mapped to cicflowmeter format{Colors.RESET}")
+        header_skipped = True
+    else:
+        header_skipped = False
     
     # Suppress noisy internal ML prints during live monitoring
     import contextlib
     
     try:
         for line in stream:
-            if not header_skipped and "Flow Duration" in line:
+            if not header_skipped and ("Flow Duration" in line or "flow_duration" in line):
                 header_skipped = True
                 continue
                 
@@ -183,16 +241,28 @@ def main():
                 # Parse CSV line
                 parts = line.strip().split(',')
                 features_raw = []
-                for p in parts:
-                    try:
-                        features_raw.append(float(p))
-                    except:
-                        pass
                 
-                if len(features_raw) >= len(feature_cols):
-                    features_raw = features_raw[:len(feature_cols)]
+                if len(col_mapping) == len(feature_cols):
+                    # Live mode: use hardcoded column mapping
+                    for idx in col_mapping:
+                        if idx >= 0 and idx < len(parts):
+                            try:
+                                features_raw.append(float(parts[idx]))
+                            except:
+                                features_raw.append(0.0)
+                        else:
+                            features_raw.append(0.0)
                 else:
-                    continue
+                    # Simulator mode: fallback (columns already match)
+                    for p in parts:
+                        try:
+                            features_raw.append(float(p))
+                        except:
+                            pass
+                    if len(features_raw) >= len(feature_cols):
+                        features_raw = features_raw[:len(feature_cols)]
+                    else:
+                        continue
                     
                 # 1. Rule Engine Evaluation
                 flow_dict = {col: val for col, val in zip(feature_cols, features_raw)}
