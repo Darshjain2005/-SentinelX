@@ -1,0 +1,9 @@
+nano ~/sentinelx/detection_engine/rules/port_scan.yaml
+
+    selection:
+        # Port scans often complete (or time out) very quickly with tiny packet counts
+        Flow Duration: '< 100'
+        Total Fwd Packets: '<= 2'
+        Total Backward Packets: '<= 1'
+        SYN Flag Count: '> 0'
+    condition: selection
