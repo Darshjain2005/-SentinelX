@@ -298,7 +298,7 @@ def main():
                     new_node_pred = logits[-1].argmax().item()
                     new_node_conf = probs[-1][1].item()
                     
-                    if new_node_pred == 1 and new_node_conf > 0.85:
+                    if new_node_pred == 1 and new_node_conf > 0.65:
                         print_alert(flow_count, f"Zero-Day / Unknown Attack structure detected. (Confidence: {new_node_conf*100:.1f}%)", "GraphSAGE", severity="CRITICAL")
                         alert_counts["GraphSAGE"] += 1
 
