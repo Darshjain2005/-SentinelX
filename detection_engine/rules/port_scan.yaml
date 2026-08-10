@@ -12,5 +12,6 @@ detection:
         Flow Duration: '< 100'
         Total Fwd Packets: '<= 2'
         Total Backward Packets: '<= 1'
+        SYN Flag Count: '> 0'
     condition: selection
 level: medium
