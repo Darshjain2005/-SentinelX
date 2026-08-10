@@ -8,7 +8,9 @@ logsource:
     product: sentinelx
 detection:
     selection:
-        # If the flow has more than 50,000 packets per second, it's highly suspicious
+        # DoS requires high packet rate AND high packet count AND must be TCP (SYN flood)
         Flow Packets/s: '> 50000'
+        Total Fwd Packets: '> 100'
+        SYN Flag Count: '> 0'
     condition: selection
 level: critical

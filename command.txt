@@ -1,0 +1,42 @@
+=========================================================
+SENTINELX DEMO COMMANDS (EASY COPY-PASTE)
+=========================================================
+
+---------------------------------------------------------
+[1] ON YOUR UBUNTU VM (TERMINAL 1) - The Network Sniffer
+---------------------------------------------------------
+# Delete any old CSV file if it exists
+rm -f ~/sentinelx/live_traffic.csv
+
+# Start CICFlowMeter (Replace eth0 with your network interface if different, e.g., ens33)
+sudo cicflowmeter -i eth0 -c ~/sentinelx/live_traffic.csv
+
+
+---------------------------------------------------------
+[2] ON YOUR UBUNTU VM (TERMINAL 2) - The AI Monitor
+---------------------------------------------------------
+# Go to the folder
+cd ~/sentinelx
+
+# Start the Python Live Monitor
+python3 live_demo/live_monitor.py --file ~/sentinelx/live_traffic.csv
+
+
+---------------------------------------------------------
+[3] ON YOUR KALI VM (TERMINAL 3) - The Attacker
+---------------------------------------------------------
+# Make sure the script is executable (only need to run this once)
+chmod +x attack_demo.sh
+
+# Launch the attack (Replace 192.168.X.X with your Ubuntu IP address)
+sudo ./attack_demo.sh 192.168.X.X
+
+
+=========================================================
+PRO TIP FOR THE DEMO:
+If the monitor on Ubuntu is waiting slowly after the Kali 
+script finishes, go to Ubuntu Terminal 1 and press [Ctrl+C] 
+to stop the sniffer. It will instantly dump all the attack 
+traffic it was holding in memory, and the alerts will 
+explode on the screen in Terminal 2!
+=========================================================
